@@ -30,11 +30,13 @@ pipeline {
                         sh "[ -f '${envFile}' ] && cp '${envFile}' .env"
                         sh "cp ${envFile} .env"
                         
-                        if [ -f docker-compose.yml ]; then
-                            docker compose up -d --build
-                        else
-                            return 0
-                        fi
+                        sh '''if [ -f docker-compose.yml ]; then
+                                docker compose up -d --build
+                              else
+                                exit 0
+                              fi
+                        '''
+
                         
                         // 3. Clean up the .env file after deployment (optional but safer)
                         sh "[ -f .env ] && rm .env"
