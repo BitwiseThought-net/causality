@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import pika
+import time
 
 def get_retry_count(properties):
     """Accurately counts how many times this message has cycled through the retry exchange."""
@@ -16,22 +17,22 @@ def process_webhook_payload(ch, method, properties, body):
     print("📥 [Worker] Processing an incoming message.")
     retry_count = get_retry_count(properties)
     MAX_RETRIES = 3
-    
+
     try:
         payload = json.loads(body.decode('utf-8'))
-        
+
         if payload.get("data", {}).get("trigger_error") is True:
             raise RuntimeError("Simulated internal system dependency crash.")
-            
+
         print(f"⚙️ [Worker] Task completed successfully: {payload}")
         ch.basic_ack(delivery_tag=method.delivery_tag)
-        
+
     except Exception as e:
         print(f"⚠️ [Worker] Error processing message: {e}")
-        
+
         if retry_count >= MAX_RETRIES:
             print(f"🚨 [Worker] Message exceeded {MAX_RETRIES} attempts. Sending to permanent Dead Letter Queue.")
-            
+
             # Manually publish to the permanent 'dead' path, then clear from the active loop
             ch.basic_publish(
                 exchange='dlx_exchange',
@@ -58,7 +59,7 @@ def main():
     parameters = pika.ConnectionParameters(host=RABBITMQ_HOST, credentials=credentials)
     connection = pika.BlockingConnection(parameters)
     channel = connection.channel()
-    
+
     # Mirror identical definitions in worker startup
     channel.exchange_declare(exchange='dlx_exchange', exchange_type='topic')
     channel.queue_declare(
@@ -84,7 +85,7 @@ def main():
 
     channel.basic_qos(prefetch_count=1)
     channel.basic_consume(queue='webhook_queue', on_message_callback=process_webhook_payload)
-    
+
     print("🛸 [Worker] Listening for tasks...")
     channel.start_consuming()
 
