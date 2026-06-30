@@ -1,0 +1,60 @@
+name: Continuous Integration
+
+# Triggers the workflow whenever a PR is opened or synchronized (new commits pushed)
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  integration-test:
+    name: Build Stack and Run Webhook Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Pull down the repository code into the runner
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Set up Python on the runner to run the local mock script
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-python: '3.11'
+          cache: 'pip'
+
+      # 3. Install host-side dependencies required for the mock test script
+      - name: Install Local Test Dependencies
+        run: |
+          pip install requests
+
+      # 4. Execute your shell script to generate the .env file dynamically
+      - name: Generate Secure Tokens and .env File
+        run: |
+          chmod +x setup_env.sh
+          ./setup_env.sh
+
+      # 5. Build and launch the entire Docker Compose environment (FastAPI, Worker, RabbitMQ)
+      - name: Start Docker Compose Stack
+        run: |
+          docker compose up --build -d
+
+      # 6. Wait for RabbitMQ health check to pass before sending payloads
+      - name: Wait for Infrastructure Readiness
+        run: |
+          echo "Waiting for services to settle..."
+          sleep 10
+
+      # 7. Run your mock script to execute the signature/queue test pipeline
+      - name: Run End-to-End Webhook Test
+        run: |
+          python test_webhook.py
+
+      # 8. Clean up infrastructure and print container logs if things failed
+      - name: Teardown and Log Collection
+        if: always()
+        run: |
+          echo "=== Web Server Logs ==="
+          docker compose logs webhook-app
+          echo "=== Background Worker Logs ==="
+          docker compose logs webhook-worker
+          docker compose down
