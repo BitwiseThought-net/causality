@@ -1,2 +1,2 @@
-# Cause-N-Effect
+# Causality
 
