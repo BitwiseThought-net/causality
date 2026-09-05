@@ -78,7 +78,7 @@ echo "--------------------------------------------------------"
 echo ""
 
 # 3. Prompt the user for execution choice (Defaulting to Y)
-read -p "Would you like to run this curl command now? [Y/n]: " USER_CHOICE
+read -p "Would you like to run this curl command now? [Y/n]: " USER_CHOICE || true
 USER_CHOICE=$(echo "$USER_CHOICE" | tr '[:upper:]' '[:lower:]')
 USER_CHOICE="${USER_CHOICE:-y}"
 
